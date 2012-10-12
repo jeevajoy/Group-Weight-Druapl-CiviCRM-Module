@@ -1,0 +1,5 @@
+name = Civicrm Group Weight
+description = Drupal / CiviCRM Groups display order / email notification of website update
+dependencies[] = civicrm
+package = CiviCRM
+core = 7.x

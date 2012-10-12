@@ -1,0 +1,31 @@
+Message Title: Sample CiviMail Newsletter Template
+Message Subject:Sample CiviMail Newsletter
+
+Subject: Replace this logo with the URL to your own	   	Your Newsletter Title
+
+{drupal_content}
+	
+News and Events
+Featured Events
+Fundraising Dinner
+Training Meeting
+Board of Directors Annual Meeting
+
+
+Community Events
+Bake Sale
+Charity Auction
+Art Exhibit
+
+
+Important Dates
+Tuesday August 27
+Wednesday September 8
+Thursday September 29
+Saturday October 1
+Sunday October 20
+Click here to unsubscribe from this mailing list.
+
+Our mailing address is:
+{domain.address}
+

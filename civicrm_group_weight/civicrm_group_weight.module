@@ -1,0 +1,270 @@
+<?php 
+
+/*
+ +--------------------------------------------------------------------+
+ | CiviCRM version 4.0                                                |
+ +--------------------------------------------------------------------+
+ | Copyright CiviCRM LLC (c) 2004-2011                                |
+ +--------------------------------------------------------------------+
+ | This file is a part of CiviCRM.                                    |
+ |                                                                    |
+ | CiviCRM is free software; you can copy, modify, and distribute it  |
+ | under the terms of the GNU Affero General Public License           |
+ | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
+ |                                                                    |
+ | CiviCRM is distributed in the hope that it will be useful, but     |
+ | WITHOUT ANY WARRANTY; without even the implied warranty of         |
+ | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
+ | See the GNU Affero General Public License for more details.        |
+ |                                                                    |
+ | You should have received a copy of the GNU Affero General Public   |
+ | License and the CiviCRM Licensing Exception along                  |
+ | with this program; if not, contact CiviCRM LLC                     |
+ | at info[AT]civicrm[DOT]org. If you have questions about the        |
+ | GNU Affero General Public License or the licensing of CiviCRM,     |
+ | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ +--------------------------------------------------------------------+
+*/
+
+/**
+ *
+ * @package CRM
+ * @copyright CiviCRM LLC (c) 2004-2011
+ * $Id$
+ *
+ */
+
+//From Email address to send the Drupal Daily Digest emails
+define( 'CIVICRM_MTL_GROUP_WEIGHT_FROM_EMAIL_ADDRESS' , 'unionlearn@tuc.org.uk');
+define( 'CIVICRM_MTL_GROUP_WEIGHT_PROFILE_ID' , 15 ); 
+define( 'CIVICRM_MTL_GROUP_WEIGHT_TEMPLATE_ID' , 45 );
+define( 'CIVICRM_MTL_GROUP_WEIGHT_ACTIVITY_TYPE_ID' , 33 );
+
+/**********************************************/
+/*** IMPORTANT: DO NOT EDIT BELOW THIS LINE ***/
+/**********************************************/
+
+define( 'CIVICRM_MTL_GROUP_WEIGHT' , 'mtl_civicrm_group_weight' ); 
+
+
+function civicrm_group_weight_civicrm_config( &$config ) {
+    $template =& CRM_Core_Smarty::singleton( );
+    $customRoot = dirname( __FILE__ );
+    $customDir = $customRoot . DIRECTORY_SEPARATOR . 'templates';
+    if ( is_array( $template->template_dir ) ) {
+        array_unshift( $template->template_dir, $customDir );
+    } else {
+        $template->template_dir = array( $customDir, $template->template_dir );
+    }
+    // also fix php include path
+    $include_path = $customRoot . PATH_SEPARATOR . get_include_path( );
+    set_include_path( $include_path );
+}
+
+
+function civicrm_group_weight_civicrm_xmlMenu( &$files ) {
+    $files[] = dirname(__FILE__)."/xml/Menu/Group-mapping.xml";
+}
+
+
+function civicrm_group_weight_civicrm_navigationMenu( &$params ) {
+  //  Get the maximum key of $params    
+    $maxKey = ( max( array_keys($params) ) );    
+    $params[$maxKey+1] = array (
+								'attributes' => array (
+                                              'label'      => 'Others',
+                                              'name'       => 'Others',
+                                              'url'        => null,
+                                              'permission' => 'administer CiviCRM',
+                                              'operator'   => null,
+                                              'separator'  => null,
+                                              'parentID'   => null,
+                                              'navID'      => $maxKey+1,
+                                              'active'     => 1
+                                              ),
+                                              
+								'child' =>  array (
+                                              '1' => array (
+                                                            'attributes' => array (
+                                                                                   'label'      => 'Group Mapping',
+                                                                                   'name'       => 'Group Mapping',
+                                                                                   'url'        => 'civicrm/group-mapping&reset=1',
+                                                                                   'permission' => 'administer CiviCRM',
+                                                                                   'operator'   => null,
+                                                                                   'separator'  => 0,
+                                                                                   'parentID'   => $maxKey+1,
+                                                                                   'navID'      => 1,
+                                                                                   'active'     => 1
+                                                                                    ),
+                                                        'child' => null
+                                                            ),
+                                             
+                                            )
+								);
+								
+}
+ 
+/*
+* Function to display Weight field in Group(s) Settings Page
+**/ 
+function civicrm_group_weight_civicrm_buildForm( $formName, &$form ){   
+//echo $formName;
+   
+    if($formName =='CRM_Group_Form_Edit') {      
+        $form->add( 'text', 'groupweight', ts('Weight'),array('size' => 3) );          
+        $group = $form->getVar( '_group' );       
+        if(!empty($group)) { 
+             $groupID = $group->id;    
+             $sql = "SELECT * FROM ".CIVICRM_MTL_GROUP_WEIGHT." WHERE `entity_id`=$groupID";      
+             $dao = CRM_Core_DAO::executeQuery($sql);
+             if ($dao->fetch()){
+              $defaults['groupweight']=$dao->weight; 
+              }
+              if(isset($defaults))
+             $form->setDefaults( $defaults );           
+         } 
+    }
+    if($formName =='CRM_Profile_Form_Edit' ||$formName == 'CRM_UF_Form_Preview' ||$formName == 'CRM_Profile_Form_Dynamic' ||$formName == 'CRM_Profile_Form_Create' ) {        
+       $profileID = $form->getVar( '_gid' );
+       $groupID = $form->_fields['group']['group_id'];      
+       if($profileID == CIVICRM_MTL_GROUP_WEIGHT_PROFILE_ID || $groupID == CIVICRM_MTL_GROUP_WEIGHT_PROFILE_ID )  {                  
+           $form->assign('profileID',$profileID);  
+           $group = CRM_Core_PseudoConstant::allGroup();
+           $ids = implode(',', array_keys($group));
+           $ids = 'IN (' . $ids . ')';           
+           $sql = "SELECT civicrm_group.id, civicrm_group.title, civicrm_group.description, civicrm_group.visibility 
+                        FROM civicrm_group LEFT JOIN ".CIVICRM_MTL_GROUP_WEIGHT." ON ".CIVICRM_MTL_GROUP_WEIGHT.".entity_id = civicrm_group.id 
+                        WHERE civicrm_group.id $ids AND civicrm_group.parents IS NULL ORDER BY weight";  
+           $dao = CRM_Core_DAO::executeQuery($sql);             
+            while ($dao->fetch()) {
+                   // make sure that this group has public visibility
+                    if ($dao->visibility == 'User and User Admin Only') {
+                      continue;
+                    }                   
+                    $elementsArray[$dao->id] = $dao->id;                                   
+                    foreach ($elementsArray as $key => $value) {                                                            
+                      $elementsArray[$key] = civicrm_group_weight_buildTree($key);                                                                           
+                    }                                                
+           } 
+          
+           if (!empty($elementsArray))          
+           $form->assign('elementsArray',$elementsArray);      
+        } 
+    } 
+    
+    if($formName =='CRM_Activity_Form_Activity') { 
+    //print_r($form);exit;
+    }
+         
+}
+
+
+
+/*
+* Function to save Weight Values for Group(s)
+**/
+function civicrm_group_weight_civicrm_postProcess($formName , &$form){ 
+    if($formName == 'CRM_Group_Form_Edit') {
+        if(isset($form->_submitValues['groupweight']))         
+          $weight_value = $form->_submitValues['groupweight'];
+        if(empty($weight_value))
+          $weight_value = "NULL";                       
+          $group = $form->getVar( '_group' );            
+        if(!empty($group)) {                          
+          $groupID = $group->id;                                 
+          $sql = "REPLACE INTO ".CIVICRM_MTL_GROUP_WEIGHT." SET `entity_id`=$groupID, `weight`=$weight_value";                           
+          $dao = CRM_Core_DAO::executeQuery($sql); 
+        }                 
+    }
+    if($formName == 'CRM_Profile_Form_Edit' || $formName == 'CRM_Profile_Form_Dynamic') {    
+         $contactID = $form->getVar( '_id' );
+         $groupValues = $form->_submitValues['checkbox']; 
+         //adding groups to contact record using API  
+         require_once 'api/api.php';
+         if(isset($groupValues)) {
+             foreach($groupValues as $key => $value) {     	
+               $addGroup=civicrm_api("GroupContact","create", 
+               array ('version'=>'3','sequential' =>'1', 'group_id'=>$value, 'contact_id' =>$contactID)); 
+             }
+         } 
+    }
+}
+
+function civicrm_group_weight_profiles(){  
+    $profiles = array();
+    //$profiles[1]= 1;
+    $profiles[CIVICRM_MTL_GROUP_WEIGHT_PROFILE_ID]= CIVICRM_MTL_GROUP_WEIGHT_PROFILE_ID;
+    return $profiles;
+}
+/**function to build Group tree order by weight*/
+/*function civicrm_group_weight_buildTree($gid){ 
+    $arrayTree =array();     
+    require_once ('CRM/Contact/Form/Edit/TagsAndGroups.php');
+     $c_sql = "SELECT `children` FROM `civicrm_group` WHERE id=".$gid." AND children IS NOT NULL";                 
+     $c_dao = CRM_Core_DAO::executeQuery($c_sql);          
+     if($c_dao->fetch()){                                   
+          $cIdS = 'IN (' . $c_dao->children. ')';            
+          $g_sql = "SELECT * FROM `mtl_civicrm_group_weight` where entity_id $cIdS ORDER BY weight";    
+          $g_dao = CRM_Core_DAO::executeQuery($g_sql);           
+          while($g_dao->fetch()) {                                              
+              $group_sql = "SELECT id, title FROM `civicrm_group` WHERE id=".$g_dao->entity_id;                        
+              $group_dao = CRM_Core_DAO::executeQuery($group_sql); 
+              $group_dao->fetch();                                               
+              $arrayTree[$gid][$group_dao->id] =$group_dao->id; 
+              $check_sql = "SELECT `children` FROM `civicrm_group` WHERE id=".$group_dao->id." AND children IS NOT NULL";                 
+              $check_dao = CRM_Core_DAO::executeQuery($check_sql);
+               if($check_dao->fetch())                      
+                  $arrayTree[$gid][$group_dao->id] = civicrm_group_weight_buildTree($group_dao->id);    
+               else 
+                 $test ="false";                       
+          }                
+     }else{
+      $arrayTree[$gid][0] = 0;
+     }        
+     return $arrayTree;                      
+}*/
+
+
+function civicrm_group_weight_buildTree($gid){ 
+    $arrayTree =array();     
+    require_once ('CRM/Contact/Form/Edit/TagsAndGroups.php');
+     $c_sql = "SELECT `children` FROM `civicrm_group` WHERE id=".$gid." AND children IS NOT NULL";                 
+     $c_dao = CRM_Core_DAO::executeQuery($c_sql);          
+     if($c_dao->fetch()){                                   
+          $cIdS = 'IN (' . $c_dao->children. ')';            
+          $g_sql = "SELECT *,civicrm_group.id as id FROM  civicrm_group LEFT JOIN ".CIVICRM_MTL_GROUP_WEIGHT." ON ".CIVICRM_MTL_GROUP_WEIGHT.".entity_id = civicrm_group.id 
+                        WHERE civicrm_group.id $cIdS   ORDER BY weight";                                
+          $g_dao = CRM_Core_DAO::executeQuery($g_sql);                     
+          while($g_dao->fetch()) {                                              
+              $group_sql = "SELECT id, title FROM `civicrm_group` WHERE id=".$g_dao->id;                                    
+              $group_dao = CRM_Core_DAO::executeQuery($group_sql);              
+              $group_dao->fetch();                                               
+              $arrayTree[$gid][$group_dao->id] =$group_dao->id; 
+              $check_sql = "SELECT `children` FROM `civicrm_group` WHERE id=".$group_dao->id." AND children IS NOT NULL";  
+                           
+              $check_dao = CRM_Core_DAO::executeQuery($check_sql);
+             
+               if($check_dao->fetch())                      
+                  $arrayTree[$gid][$group_dao->id] = civicrm_group_weight_buildTree($group_dao->id);    
+               else 
+                 $test ="false";                       
+          }                
+     }else{
+      $arrayTree[$gid][0] = 0;
+     }        
+     return $arrayTree;                      
+}
+
+
+ function civicrm_group_weight_groupName($gid){  
+    require_once 'api/api.php'; 
+    $groupDetails = civicrm_api("Group","get", array ('version' => '3','sequential' =>'1', 'id' =>$gid));
+    $groupName = $groupDetails['values'][0]['name'];    
+    return $groupName;  
+ }
+ 
+
+
+ 
+ 
+  
